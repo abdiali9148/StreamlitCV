@@ -23,10 +23,7 @@ device = st.sidebar.selectbox(
 
 # Load model once
 @st.cache_resource
-def load_model():
-    return YOLO("yolo26n.pt")
-
-model = load_model()
+model = YOLO("yolo26n.pt")
 
 run = st.button("Start Webcam")
 stop = st.button("Stop")
