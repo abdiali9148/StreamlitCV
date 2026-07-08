@@ -10,6 +10,20 @@ st.set_page_config(page_title="YOLO Live Detection", layout="wide")
 
 st.title("🎥 YOLO Live Object Detection")
 
+st.markdown("""
+<style>
+video::-webkit-media-controls {
+    display: none !important;
+}
+video::-webkit-media-controls-enclosure {
+    display: none !important;
+}
+video::-webkit-media-controls-panel {
+    display: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # --------------------------------------------------
 # Sidebar Controls
 # --------------------------------------------------
