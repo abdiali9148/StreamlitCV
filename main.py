@@ -1,5 +1,4 @@
 import av
-import queue
 import streamlit as st
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
 from ultralytics import YOLO
@@ -10,6 +9,24 @@ from ultralytics import YOLO
 st.set_page_config(page_title="YOLO Live Detection", layout="wide")
 
 st.title("🎥 YOLO Live Object Detection")
+
+st.markdown("""
+<style>
+video::-webkit-media-controls,
+video::-webkit-media-controls-enclosure,
+video::-webkit-media-controls-panel,
+video::-webkit-media-controls-play-button,
+video::-webkit-media-controls-timeline,
+video::-webkit-media-controls-current-time-display,
+video::-webkit-media-controls-time-remaining-display,
+video::-webkit-media-controls-mute-button,
+video::-webkit-media-controls-volume-slider,
+video::-webkit-media-controls-fullscreen-button {
+    display: none !important;
+    -webkit-appearance: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # --------------------------------------------------
 # Sidebar Controls
@@ -38,11 +55,6 @@ def load_model():
 model = load_model()
 
 # --------------------------------------------------
-# Shared frame queue
-# --------------------------------------------------
-frame_queue = queue.Queue(maxsize=1)
-
-# --------------------------------------------------
 # Video Processor
 # --------------------------------------------------
 class YOLOProcessor(VideoProcessorBase):
@@ -51,8 +63,10 @@ class YOLOProcessor(VideoProcessorBase):
         self.device = "cpu"
 
     def recv(self, frame):
+        # Convert WebRTC frame to numpy array (BGR)
         img = frame.to_ndarray(format="bgr24")
 
+        # Run YOLO inference
         results = model.predict(
             source=img,
             conf=self.confidence,
@@ -60,28 +74,19 @@ class YOLOProcessor(VideoProcessorBase):
             verbose=False,
         )
 
+        # Draw detections
         annotated = results[0].plot()
 
-        # Push annotated frame to queue, drop if full
-        if not frame_queue.full():
-            frame_queue.put(annotated)
-
-        # Return original (unmodified) frame to WebRTC player
-        return av.VideoFrame.from_ndarray(img, format="bgr24")
+        # Return annotated frame
+        return av.VideoFrame.from_ndarray(
+            annotated,
+            format="bgr24",
+        )
 
 # --------------------------------------------------
-# WebRTC streamer (hidden via CSS)
+# Live Webcam
 # --------------------------------------------------
-st.markdown("""
-<style>
-iframe.stCustomComponentV1 {
-    height: 1px !important;
-    min-height: 0 !important;
-    visibility: hidden !important;
-    position: absolute !important;
-}
-</style>
-""", unsafe_allow_html=True)
+st.write("Click **START** below to begin live detection.")
 
 ctx = webrtc_streamer(
     key="yolo-live",
@@ -99,15 +104,3 @@ ctx = webrtc_streamer(
 if ctx.video_processor:
     ctx.video_processor.confidence = confidence
     ctx.video_processor.device = device
-
-# --------------------------------------------------
-# Annotated frame display
-# --------------------------------------------------
-frame_placeholder = st.empty()
-
-while ctx.state.playing:
-    try:
-        annotated = frame_queue.get(timeout=1)
-        frame_placeholder.image(annotated, channels="BGR", use_container_width=True)
-    except queue.Empty:
-        continue
