@@ -74,9 +74,11 @@ class YOLOProcessor(VideoProcessorBase):
 # --------------------------------------------------
 st.markdown("""
 <style>
-[data-testid="stCustomComponentV1"] iframe {
+iframe.stCustomComponentV1 {
     height: 1px !important;
+    min-height: 0 !important;
     visibility: hidden !important;
+    position: absolute !important;
 }
 </style>
 """, unsafe_allow_html=True)
