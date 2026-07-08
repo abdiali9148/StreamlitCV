@@ -12,14 +12,18 @@ st.title("🎥 YOLO Live Object Detection")
 
 st.markdown("""
 <style>
-video::-webkit-media-controls {
+video::-webkit-media-controls,
+video::-webkit-media-controls-enclosure,
+video::-webkit-media-controls-panel,
+video::-webkit-media-controls-play-button,
+video::-webkit-media-controls-timeline,
+video::-webkit-media-controls-current-time-display,
+video::-webkit-media-controls-time-remaining-display,
+video::-webkit-media-controls-mute-button,
+video::-webkit-media-controls-volume-slider,
+video::-webkit-media-controls-fullscreen-button {
     display: none !important;
-}
-video::-webkit-media-controls-enclosure {
-    display: none !important;
-}
-video::-webkit-media-controls-panel {
-    display: none !important;
+    -webkit-appearance: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
