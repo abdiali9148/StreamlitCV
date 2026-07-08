@@ -1,6 +1,5 @@
-import av
+import cv2
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
 from ultralytics import YOLO
 
 # --------------------------------------------------
@@ -37,52 +36,29 @@ def load_model():
 model = load_model()
 
 # --------------------------------------------------
-# Video Processor
+# Live Webcam
 # --------------------------------------------------
-class YOLOProcessor(VideoProcessorBase):
-    def __init__(self):
-        self.confidence = 0.5
-        self.device = "cpu"
+start = st.button("Start")
+stop = st.button("Stop")
+frame_placeholder = st.empty()
 
-    def recv(self, frame):
-        # Convert WebRTC frame to numpy array (BGR)
-        img = frame.to_ndarray(format="bgr24")
+if start:
+    cap = cv2.VideoCapture(0)
 
-        # Run YOLO inference
+    while not stop:
+        ret, frame = cap.read()
+        if not ret:
+            st.error("Could not access webcam.")
+            break
+
         results = model.predict(
-            source=img,
-            conf=self.confidence,
-            device=self.device,
+            source=frame,
+            conf=confidence,
+            device=device,
             verbose=False,
         )
 
-        # Draw detections
         annotated = results[0].plot()
+        frame_placeholder.image(annotated, channels="BGR", use_container_width=True)
 
-        # Return annotated frame
-        return av.VideoFrame.from_ndarray(
-            annotated,
-            format="bgr24",
-        )
-
-# --------------------------------------------------
-# Live Webcam
-# --------------------------------------------------
-st.write("Click **START** below to begin live detection.")
-
-ctx = webrtc_streamer(
-    key="yolo-live",
-    video_processor_factory=YOLOProcessor,
-    rtc_configuration={
-        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
-    },
-    media_stream_constraints={
-        "video": True,
-        "audio": False,
-    },
-)
-
-# Sync sidebar controls to processor in real time
-if ctx.video_processor:
-    ctx.video_processor.confidence = confidence
-    ctx.video_processor.device = device
+    cap.release()
