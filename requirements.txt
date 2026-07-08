@@ -4,3 +4,6 @@ ultralytics
 numpy
 pillow
 python-dotenv
+streamlit-webrtc
+av
+aiortc

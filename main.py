@@ -1,14 +1,18 @@
+import av
 import streamlit as st
-import cv2
-import numpy as np
-from PIL import Image
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
 from ultralytics import YOLO
 
+# --------------------------------------------------
+# Page Configuration
+# --------------------------------------------------
 st.set_page_config(page_title="YOLO Live Detection", layout="wide")
 
-st.title("🎥 YOLO Object Detection")
+st.title("🎥 YOLO Live Object Detection")
 
-# Sidebar controls
+# --------------------------------------------------
+# Sidebar Controls
+# --------------------------------------------------
 confidence = st.sidebar.slider(
     "Confidence Threshold",
     min_value=0.0,
@@ -20,41 +24,65 @@ confidence = st.sidebar.slider(
 device = st.sidebar.selectbox(
     "Inference Device",
     ["cpu", "mps"],
-    index=0,  # default to cpu - deployed servers won't have mps
+    index=0,
 )
 
-
-# Load model once, cached across reruns
+# --------------------------------------------------
+# Load YOLO Model
+# --------------------------------------------------
 @st.cache_resource
 def load_model():
     return YOLO("yolo26n.pt")
 
-
 model = load_model()
 
-# Browser-based camera capture (works locally AND deployed)
-img_file = st.camera_input("Take a photo")
+# --------------------------------------------------
+# Video Processor
+# --------------------------------------------------
+class YOLOProcessor(VideoProcessorBase):
+    def __init__(self):
+        self.confidence = 0.5
+        self.device = "cpu"
 
-if img_file is not None:
-    image = Image.open(img_file)
-    frame = np.array(image)
+    def recv(self, frame):
+        # Convert WebRTC frame to numpy array (BGR)
+        img = frame.to_ndarray(format="bgr24")
 
-    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        # Run YOLO inference
+        results = model.predict(
+            source=img,
+            conf=self.confidence,
+            device=self.device,
+            verbose=False,
+        )
 
-    results = model.predict(
-        source=frame_bgr,
-        device=device,
-        conf=confidence,
-        verbose=False,
-    )
+        # Draw detections
+        annotated = results[0].plot()
 
-    annotated = results[0].plot()
-    annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+        # Return annotated frame
+        return av.VideoFrame.from_ndarray(
+            annotated,
+            format="bgr24",
+        )
 
-    st.image(
-        annotated_rgb,
-        channels="RGB",
-        use_container_width=True,
-    )
-else:
-    st.info("Click the camera button above to take a photo and run detection.")
+# --------------------------------------------------
+# Live Webcam
+# --------------------------------------------------
+st.write("Click **START** below to begin live detection.")
+
+ctx = webrtc_streamer(
+    key="yolo-live",
+    video_processor_factory=YOLOProcessor,
+    rtc_configuration={
+        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+    },
+    media_stream_constraints={
+        "video": True,
+        "audio": False,
+    },
+)
+
+# Sync sidebar controls to processor in real time
+if ctx.video_processor:
+    ctx.video_processor.confidence = confidence
+    ctx.video_processor.device = device
